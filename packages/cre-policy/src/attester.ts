@@ -10,7 +10,7 @@ import {readFileSync} from "node:fs";
 import {fileURLToPath} from "node:url";
 import {dirname, join} from "node:path";
 import {abis} from "@bankos/shared/abis";
-import {chainById, type Deployment, type Policy} from "@bankos/shared";
+import {chainById, supportsCRE, type Deployment, type Policy} from "@bankos/shared";
 
 const __dir = dirname(fileURLToPath(import.meta.url));
 
@@ -30,6 +30,14 @@ export class Attester {
     const chainId = Number(process.env.CHAIN_ID ?? 31337);
     const rpcUrl = process.env.RPC_URL ?? "http://127.0.0.1:8545";
     const chain = chainById(chainId);
+
+    // Chainlink CRE is Arc-only. Refuse to stand up the attester on a chain where CRE isn't available
+    // (e.g. Robinhood Chain) — the confidential-compliance layer must not silently pretend to run there.
+    if (!supportsCRE(chainId)) {
+      throw new Error(
+        `[cre-policy] Chainlink CRE is not available on chain ${chainId} (${chain.name}); CRE attestation is Arc-only`,
+      );
+    }
 
     // Fail fast on a real chain: never sign Arc attestations with the local anvil fallback key / localhost RPC.
     if (chainId !== 31337 && (!process.env.ATTESTER_PRIVATE_KEY || !process.env.RPC_URL)) {

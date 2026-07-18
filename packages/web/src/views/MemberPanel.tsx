@@ -24,7 +24,7 @@ import {getUnlinkClient} from "../lib/unlink";
 import {getBankMembers} from "../lib/events";
 import {issueStatement, formatBand} from "../lib/statements";
 import {getReputation} from "../lib/reputation";
-import {EURC_ADDRESS} from "../config";
+import {EURC_ADDRESS, SUPPORTS_CRE, chain} from "../config";
 import type {BankInfo} from "../lib/contracts";
 import {Money, Badge, Field, Notice, Toggle, useTx, TxButton, Section} from "../components";
 
@@ -160,6 +160,18 @@ function ComplianceCard({bank, policy, onChange}: {bank: BankInfo; policy: any; 
       if (!res.approved) throw new Error(`Declined: ${res.reasons.join("; ")}`);
     }, "Approved — eligibility attested on-chain ✓");
     onChange();
+  }
+
+  if (!SUPPORTS_CRE) {
+    return (
+      <Section title="Compliance" icon="✅">
+        <Notice tone="info">
+          Confidential compliance runs on the Chainlink CRE workflow, which is available on Arc only and
+          is <strong>not supported on {chain.name}</strong>. On-chain eligibility attestation is disabled
+          on this chain.
+        </Notice>
+      </Section>
+    );
   }
 
   return (

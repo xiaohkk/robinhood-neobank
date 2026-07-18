@@ -1,10 +1,10 @@
 import {useState} from "react";
 import type {Address} from "viem";
-import {toUsdc, fromUsdc, type Products} from "@bankos/shared";
+import {toUsdc, fromUsdc, ARC_USDC_ERC20, ARC_EURC, type Products} from "@bankos/shared";
 import type {UnlinkClient} from "@bankos/unlink-engine";
 import {useWallet} from "../wallet/WalletContext";
 import {useAsync} from "../hooks";
-import {deployment, ENABLE_LIFI} from "../config";
+import {deployment, ENABLE_LIFI, CHAIN_ID} from "../config";
 import {
   openCreditLine,
   allocateToStrategy,
@@ -26,7 +26,7 @@ import {
 import {getBankMembers} from "../lib/events";
 import {getUnlinkClient} from "../lib/unlink";
 import {registerTreasury, getTreasury, getSettlements, getNet} from "../lib/settlements";
-import {getArcTreasurySwapQuote, type LifiQuote} from "../lib/lifi";
+import {getLifiQuote, executeLifiRoute, type LifiQuote} from "../lib/lifi";
 import {proposeTreasuryMove, fetchClaudeReview} from "../lib/treasuryAgent";
 import {useLedger} from "../ledger/LedgerProvider";
 import {clearSign} from "../ledger/erc7730";
@@ -435,32 +435,50 @@ function ControlsCard({bank, onChange}: {bank: BankInfo; onChange: () => void}) 
 }
 
 function LifiCard({bank}: {bank: BankInfo}) {
+  const wallet = useWallet();
   const [amount, setAmount] = useState("10000");
   const [quote, setQuote] = useState<LifiQuote | null>(null);
   const [loading, setLoading] = useState(false);
+  const [executing, setExecuting] = useState(false);
   const [err, setErr] = useState<string>();
+  const [ok, setOk] = useState<string>();
 
   async function fetchQuote() {
     setLoading(true);
     setErr(undefined);
+    setOk(undefined);
     setQuote(null);
-    try {
-      const q = await getArcTreasurySwapQuote({fromAddress: bank.address, amount: toUsdc(amount || "0")});
-      if (!q) setErr("No route available right now.");
-      setQuote(q);
-    } catch (e: any) {
-      setErr(e?.message ?? "quote failed");
-    } finally {
-      setLoading(false);
-    }
+    const from = wallet.address ?? bank.address;
+    const r = await getLifiQuote({
+      fromChain: CHAIN_ID,
+      toChain: CHAIN_ID,
+      fromToken: ARC_USDC_ERC20,
+      toToken: ARC_EURC,
+      fromAddress: from,
+      amount: toUsdc(amount || "0"),
+    });
+    if (r.ok) setQuote(r.value);
+    else setErr(r.error);
+    setLoading(false);
+  }
+
+  async function execute() {
+    if (!quote || !wallet.walletClient) return;
+    setExecuting(true);
+    setErr(undefined);
+    setOk(undefined);
+    const r = await executeLifiRoute(wallet.walletClient, quote);
+    if (r.ok) setOk(`Route executed — ${r.value.slice(0, 12)}…`);
+    else setErr(r.error);
+    setExecuting(false);
   }
 
   return (
     <Section title="LI.FI treasury route" icon="🛣️" action={<Badge tone="amber">stretch</Badge>}>
       <p className="muted" style={{marginTop: 0}}>
-        Preview an executable same-chain Arc swap (USDC→EURC). The calldata is shaped for the Unlink
-        burner to rebalance idle reserve privately — this is a route preview; burner execution isn't
-        wired yet (see ADR-001).
+        Fetch an executable same-chain swap (USDC→EURC) and, with the flag on, sign + broadcast it from
+        the connected steward wallet to rebalance idle reserve. LI.FI now also routes into Robinhood
+        Chain — cross-chain execution requires a wallet on the route's source chain (see ADR-001).
       </p>
       <div className="inline-input">
         <input value={amount} onChange={(e) => setAmount(e.target.value)} />
@@ -471,8 +489,17 @@ function LifiCard({bank}: {bank: BankInfo}) {
           <div className="kv"><span className="k">Tool</span><span className="val">{quote.tool}</span></div>
           <div className="kv"><span className="k">Est. out (EURC)</span><span className="val">{fromUsdc(BigInt(quote.toAmount))}</span></div>
           <div className="kv"><span className="k">Router</span><span className="val">{quote.to.slice(0, 12)}…</span></div>
+          <button
+            className="btn primary block"
+            style={{marginTop: 10}}
+            onClick={execute}
+            disabled={executing || !wallet.walletClient}
+          >
+            {executing ? "Executing…" : "Execute route"}
+          </button>
         </div>
       )}
+      {ok && <Notice tone="ok">{ok}</Notice>}
       {err && <Notice tone="info">{err}</Notice>}
     </Section>
   );

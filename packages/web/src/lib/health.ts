@@ -1,5 +1,5 @@
 import {publicClient} from "../wallet/WalletContext";
-import {POLICY_URL, ENGINE_URL, CHAIN_ID} from "../config";
+import {POLICY_URL, ENGINE_URL, chain} from "../config";
 
 export interface Health {
   chain: boolean;
@@ -26,4 +26,5 @@ export async function getHealth(): Promise<Health> {
   return {chain: block !== undefined, policy, engine, blockNumber: block};
 }
 
-export const CHAIN_LABEL = CHAIN_ID === 5042002 ? "Arc Testnet" : "local Arc";
+/** Human label for the active chain (Arc Testnet, Robinhood Chain, local Arc, …). */
+export const CHAIN_LABEL = chain.name;

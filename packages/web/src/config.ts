@@ -1,4 +1,4 @@
-import {chainById, ARC_EURC, type Deployment} from "@bankos/shared";
+import {chainById, supportsCRE, ARC_EURC, type Deployment} from "@bankos/shared";
 import deploymentJson from "./generated/deployment.json";
 
 export const deployment = deploymentJson as unknown as Deployment;
@@ -15,6 +15,13 @@ export const DYNAMIC_ENV_ID = import.meta.env.VITE_DYNAMIC_ENVIRONMENT_ID as str
 
 /** LI.FI treasury routing is a feature-flagged stretch (see ADR-001). */
 export const ENABLE_LIFI = import.meta.env.VITE_ENABLE_LIFI === "true";
+
+/**
+ * Whether the Chainlink CRE confidential-compliance workflow is available on the active chain.
+ * CRE is confirmed Arc-only — it is NOT supported on Robinhood Chain — so the KYC/attestation flow is
+ * gated off there. Auto-detected by chainId (see supportsCRE in @bankos/shared).
+ */
+export const SUPPORTS_CRE = supportsCRE(CHAIN_ID);
 
 export const isLocal = CHAIN_ID === 31337;
 

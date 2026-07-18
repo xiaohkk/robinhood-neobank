@@ -16,8 +16,14 @@ import {IERC4626} from "../src/interfaces/IExternal.sol";
 /// Env vars (all optional):
 ///   PRIVATE_KEY   - deployer key (defaults to anvil account #0 if unset)
 ///   ATTESTER      - the Chainlink CRE forwarder address authorized to write policy
-///                   (defaults to anvil account #1)
-///   USDC_ADDRESS  - existing USDC; if unset/zero a MockUSDC is deployed (use 0x3600... on Arc)
+///                   (defaults to anvil account #1). NB: CRE is Arc-only; on Robinhood Chain this is
+///                   just an owner-controlled key, not a live CRE forwarder.
+///   ASSET_ADDRESS - the Bank's reserve asset (generic ERC-20). Preferred key; falls back to
+///                   USDC_ADDRESS for Arc back-compat. On Robinhood Chain set this to Paxos USDG.
+///   USDC_ADDRESS  - legacy alias for ASSET_ADDRESS (use 0x3600... on Arc). If both unset/zero a
+///                   MockUSDC is deployed.
+///   MORPHO_VAULT  - an existing ERC-4626 yield vault to allow-list (e.g. a Morpho vault on Robinhood
+///                   Chain). If unset/zero a MockYieldVault is deployed and allow-listed instead.
 contract Deploy is Script {
     // anvil default accounts
     uint256 constant ANVIL_PK0 = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
@@ -29,7 +35,9 @@ contract Deploy is Script {
         address deployer = vm.addr(pk);
         address attester = vm.envOr("ATTESTER", ANVIL_ACCT1);
         address engineRelayer = vm.envOr("ENGINE_RELAYER", ANVIL_ACCT5);
-        address usdcAddr = vm.envOr("USDC_ADDRESS", address(0));
+        // ASSET_ADDRESS is the generic Bank reserve asset; USDC_ADDRESS is the legacy Arc alias.
+        address usdcAddr = vm.envOr("ASSET_ADDRESS", vm.envOr("USDC_ADDRESS", address(0)));
+        address morphoVault = vm.envOr("MORPHO_VAULT", address(0));
 
         vm.startBroadcast(pk);
 
@@ -41,10 +49,14 @@ contract Deploy is Script {
         ExecutionRouter router = new ExecutionRouter(deployer);
         CharterFactory factory = new CharterFactory(deployer, usdcAddr, address(policy), address(router));
 
-        // A vetted demo yield strategy, allow-listed for steward treasury routing.
-        MockYieldVault vault = new MockYieldVault(usdcAddr);
-        router.setAllowed(address(vault), IERC4626.deposit.selector, true);
-        router.setAllowed(address(vault), IERC4626.redeem.selector, true);
+        // Yield strategy allow-listed for steward treasury routing. Prefer a real ERC-4626 vault
+        // (e.g. a Morpho vault on Robinhood Chain) when MORPHO_VAULT is set; otherwise deploy a mock.
+        address vaultAddr = morphoVault;
+        if (vaultAddr == address(0)) {
+            vaultAddr = address(new MockYieldVault(usdcAddr));
+        }
+        router.setAllowed(vaultAddr, IERC4626.deposit.selector, true);
+        router.setAllowed(vaultAddr, IERC4626.redeem.selector, true);
 
         // Shielded pool for the Unlink privacy layer (engine settles withdrawals).
         PrivacyPool pool = new PrivacyPool(deployer, usdcAddr, engineRelayer);
@@ -56,7 +68,7 @@ contract Deploy is Script {
         console2.log("ExecutionRouter ", address(router));
         console2.log("CharterFactory  ", address(factory));
         console2.log("BankImpl        ", factory.bankImplementation());
-        console2.log("YieldVault      ", address(vault));
+        console2.log("YieldVault      ", vaultAddr);
         console2.log("PrivacyPool     ", address(pool));
         console2.log("Attester        ", attester);
         console2.log("EngineRelayer   ", engineRelayer);
@@ -68,7 +80,7 @@ contract Deploy is Script {
                 router: address(router),
                 factory: address(factory),
                 bankImpl: factory.bankImplementation(),
-                vault: address(vault),
+                vault: vaultAddr,
                 pool: address(pool),
                 attester: attester,
                 engineRelayer: engineRelayer

@@ -3,6 +3,24 @@
 BankOS is a **bank factory**: infrastructure to launch branded, self-custodial, private, compliant
 stablecoin banks on Arc. This document explains the layers, the contracts, and the end-to-end flows.
 
+## Supported chains
+
+The contracts are chain-agnostic; chain metadata lives in one place (`packages/shared/src/chains.ts` via
+viem `defineChain`) and the app resolves the active chain from `VITE_CHAIN_ID`. Two chains are supported:
+
+| Chain | ID | Native gas | Bank asset | Compliance (Chainlink CRE) |
+|---|---|---|---|---|
+| **Arc Testnet** | `5042002` | USDC | USDC | ✅ available |
+| **Robinhood Chain** (Orbit L2) | `4663` mainnet / `46630` testnet | ETH | Paxos USDG | ❌ **not supported** (Arc-only) |
+
+Adding Robinhood Chain required **no contract changes** — only chain config + deploy env (asset = Paxos
+USDG, an allow-listed Morpho ERC-4626 vault). See [`ROBINHOOD-DEPLOY.md`](./ROBINHOOD-DEPLOY.md). Arc
+remains fully supported; both are selectable via the existing config pattern.
+
+**Capability gating:** Chainlink CRE is confirmed Arc-only, so `supportsCRE(chainId)` (in
+`@bankos/shared`) gates the confidential-compliance layer off on Robinhood Chain — the web Compliance card
+stubs out and the `cre-policy` attester fails fast there rather than pretending to run.
+
 ## Layered design
 
 ```
@@ -78,7 +96,9 @@ gated by `isEligibleToBorrow`, the line, the portfolio utilization cap, and avai
 ### 6. Treasury yield
 `steward → Bank.allocateToStrategy(vault, assets)` — requires `vault`'s `deposit` selector to be
 allow-listed in `ExecutionRouter`. `redeemFromStrategy(vault, shares)` pulls funds back; `totalAssets`
-reflects accrued yield. LI.FI can supply same-chain swap calldata for this step (ADR-001, feature-flag).
+reflects accrued yield. Behind the `VITE_ENABLE_LIFI` flag, the LI.FI module fetches an executable swap
+quote and can **sign + broadcast** it (guarded so the wallet must be on the route's source chain);
+Robinhood Chain is now a supported LI.FI destination (ADR-001).
 
 ## Why self-custodial / not "a bank"
 

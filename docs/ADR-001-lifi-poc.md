@@ -48,3 +48,27 @@ Run with `node scripts/lifi-poc.mjs` (live calls to `li.quest`). Findings on 202
 Unlink `execute()` ≈ **BurnerWallet** in the current canary SDK (`@unlink-xyz/sdk@0.0.2-canary.0`):
 `fundFromPool → arbitrary DeFi calls → depositToPool`. The treasury-yield feature is designed around
 that primitive, with LI.FI calldata as one (optional) source of the "arbitrary DeFi call".
+
+## Addendum — 2026-07 — Robinhood Chain destination + real execution
+
+- **Status:** Accepted (update)
+- **Context:** Re-testing `li.quest` showed **Robinhood Chain (`4663`) is now a working LI.FI
+  destination** with executable routes (e.g. Arbitrum USDC → Robinhood Chain native ETH via the `Relay`
+  provider returns a real `transactionRequest`), unlike the cross-chain-into-Arc dead end from the
+  original PoC.
+
+**Changes (`packages/web/src/lib/lifi.ts`):**
+- Quoting is generalized to any src→dst pair via `getLifiQuote(...)`, with a `SUPPORTED_LIFI_CHAINS`
+  allow-list (Arc `5042002` + Robinhood mainnet `4663`; LI.FI does not index Robinhood **testnet** 46630).
+- Added `executeLifiRoute(walletClient, quote)` — it **signs + broadcasts** the returned
+  `transactionRequest` and waits for the receipt, replacing the preview-only behavior. It is **guarded**:
+  the connected wallet must be on the route's source chain (`transactionRequest.chainId`), otherwise it
+  returns a clear "switch to chain X" error. This is because the app's `walletClient` is bound to a single
+  chain; funded cross-chain execution requires a wallet on the source chain.
+- Error handling returns typed `{ok:false, error}` results (surfacing LI.FI's own message) for routes it
+  can't fill, unsupported destinations, or network failures — no more bare `null`.
+- The `VITE_ENABLE_LIFI` feature-flag pattern is preserved; the Steward panel gains an "Execute route"
+  button behind the flag. `getArcTreasurySwapQuote` remains as a thin back-compat wrapper.
+
+The Unlink-burner wrapping (`fundFromPool → swap → depositToPool`) remains the intended path for making
+the treasury swap *private*; direct execution here demonstrates the real broadcast seam.

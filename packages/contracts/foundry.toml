@@ -22,3 +22,11 @@ int_types = "long"
 
 [rpc_endpoints]
 arc_testnet = "https://rpc.testnet.arc.network"
+robinhood_testnet = "https://rpc.testnet.chain.robinhood.com/rpc"
+robinhood_mainnet = "https://rpc.mainnet.chain.robinhood.com"
+
+# Blockscout verification for Robinhood Chain. Blockscout ignores the API key (any non-empty value
+# works); pass `--verifier blockscout` to forge verify-contract. See docs/ROBINHOOD-DEPLOY.md.
+[etherscan]
+robinhood_testnet = {key = "blockscout", url = "https://explorer.testnet.chain.robinhood.com/api", chain = 46630}
+robinhood_mainnet = {key = "blockscout", url = "https://robinhoodchain.blockscout.com/api", chain = 4663}
