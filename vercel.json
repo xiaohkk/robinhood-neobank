@@ -1,7 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "npm install",
-  "buildCommand": "CHAIN_ID=5042002 node scripts/sync-web.mjs && npm run -w @bankos/web build:vercel",
+  "buildCommand": "CHAIN_ID=${CHAIN_ID:-46630} node scripts/sync-web.mjs && npm run -w @bankos/web build:vercel",
   "outputDirectory": "packages/web/dist",
   "framework": null,
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
