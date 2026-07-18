@@ -1,0 +1,12 @@
+{
+  "attester": "0x57b7245Dd80f6F95fF1DAC034a69aAB9A367F09e",
+  "bankImplementation": "0x6cec2A22E1D7669EA5733E62627532f0AAcf1771",
+  "chainId": 46630,
+  "charterFactory": "0x020c6E44ddEE89331bE2B4Ef6cf2e7f5DC8f1e2d",
+  "engineRelayer": "0x57b7245Dd80f6F95fF1DAC034a69aAB9A367F09e",
+  "executionRouter": "0x93AF029C3df1c2b8190eb8B9c8185e0CB934C863",
+  "policyRegistry": "0x8985e2e39188d97768A8DDc1fcb9bf134Eea59bc",
+  "privacyPool": "0x654A71F6520e9FaEE35DCd4827F24F69e4Ea3ec6",
+  "usdc": "0x297F7cf1fE2f7d52c400750151e1eb9f1566210C",
+  "yieldVault": "0xf8eE896E9DF8FDb67F6cb6F99e72b6529e35ED50"
+}
