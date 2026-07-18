@@ -1,5 +1,6 @@
 import {useEffect, useState} from "react";
 import type {Address} from "viem";
+import {formatUnits} from "viem";
 import {toUsdc, fromUsdc} from "@bankos/shared";
 import type {UnlinkClient} from "@bankos/unlink-engine";
 import {useWallet} from "../wallet/WalletContext";
@@ -24,6 +25,7 @@ import {getUnlinkClient} from "../lib/unlink";
 import {getBankMembers} from "../lib/events";
 import {issueStatement, formatBand} from "../lib/statements";
 import {getReputation} from "../lib/reputation";
+import {getStockHoldings, STOCK_TOKENS_AVAILABLE} from "../lib/stocks";
 import {EURC_ADDRESS, SUPPORTS_CRE, chain} from "../config";
 import type {BankInfo} from "../lib/contracts";
 import {Money, Badge, Field, Notice, Toggle, useTx, TxButton, Section} from "../components";
@@ -44,6 +46,7 @@ export function MemberPanel({bank, onChange, version}: {bank: BankInfo; onChange
         <PrivateBalanceCard bank={bank} eligible={!!eligible} onChange={onChange} />
       </div>
       <div>
+        {STOCK_TOKENS_AVAILABLE && <StockHoldingsCard owner={me} version={version} />}
         {eligible && bank.products.credit && policy.data?.canBorrow && (
           <CreditCard bank={bank} member={member} onChange={onChange} />
         )}
@@ -53,6 +56,38 @@ export function MemberPanel({bank, onChange, version}: {bank: BankInfo; onChange
         {eligible && <DisclosureCard bank={bank} />}
       </div>
     </div>
+  );
+}
+
+// ----------------------------------------------------------- tokenized stocks (Robinhood Chain)
+function fmtStock(balance: bigint, decimals: number): string {
+  const n = Number(formatUnits(balance, decimals));
+  return n.toLocaleString(undefined, {maximumFractionDigits: 4});
+}
+
+/** Read-only: tokenized stocks the member holds in their wallet on Robinhood Chain (no custody here). */
+function StockHoldingsCard({owner, version}: {owner: Address; version: number}) {
+  const holdings = useAsync(() => getStockHoldings(owner), [owner, version]);
+  const held = holdings.data?.filter((h) => h.balance > 0n) ?? [];
+  return (
+    <Section title="Stock holdings" icon="📈" action={<Badge tone="brand">Robinhood Chain</Badge>}>
+      <p className="muted" style={{marginTop: 0}}>
+        Tokenized stocks held in your wallet on {chain.name} — the full Robinhood experience alongside your
+        bank. Custody stays in your own wallet.
+      </p>
+      {holdings.data === undefined ? (
+        <div className="muted">Loading…</div>
+      ) : held.length ? (
+        held.map((h) => (
+          <div className="kv" key={h.address}>
+            <span className="k">{h.symbol} · {h.name}</span>
+            <span className="val">{fmtStock(h.balance, h.decimals)}</span>
+          </div>
+        ))
+      ) : (
+        <Notice tone="info">No stock tokens yet — claim them from the Robinhood testnet faucet.</Notice>
+      )}
+    </Section>
   );
 }
 

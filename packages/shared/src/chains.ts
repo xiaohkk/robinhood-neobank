@@ -75,3 +75,28 @@ export const CRE_CHAIN_IDS: readonly number[] = [arcTestnet.id, 31337];
 export function supportsCRE(id: number): boolean {
   return CRE_CHAIN_IDS.includes(id);
 }
+
+/// Tokenized stocks on Robinhood Chain (real ERC-20s; addresses from the testnet faucet). Used for a
+/// read-only "stock holdings" display so members get the full Robinhood experience — hold equities
+/// alongside their stablecoin bank. Trading/custody is out of scope (a V2). Empty on chains without
+/// them (e.g. Arc), which hides the UI entirely.
+export interface StockToken {
+  symbol: string;
+  name: string;
+  address: `0x${string}`;
+  decimals: number;
+}
+
+export const STOCK_TOKENS: Record<number, StockToken[]> = {
+  [robinhoodTestnet.id]: [
+    {symbol: "PLTR", name: "Palantir Technologies", address: "0x1fbe1a0e43594b3455993b5de5fd0a7a266298d0", decimals: 18},
+    {symbol: "NFLX", name: "Netflix", address: "0x3b8262a63d25f0477c4dde23f83cfe22cb768c93", decimals: 18},
+    {symbol: "AMZN", name: "Amazon", address: "0x5884ad2f920c162cfbbacc88c9c51aa75ec09e02", decimals: 18},
+    {symbol: "AMD", name: "AMD", address: "0x71178bac73cbeb415514eb542a8995b82669778d", decimals: 18},
+    {symbol: "TSLA", name: "Tesla", address: "0xc9f9c86933092bbbfff3ccb4b105a4a94bf3bd4e", decimals: 18},
+  ],
+};
+
+export function stockTokensFor(chainId: number): StockToken[] {
+  return STOCK_TOKENS[chainId] ?? [];
+}
